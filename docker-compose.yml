@@ -1,0 +1,78 @@
+version: '3.3'
+services:
+  traefik:
+    image: "traefik:v2.3"
+    container_name: "traefik"
+    command:
+     # - "--providers.consulcatalog.endpoint.address=consul:8500"
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.traefik.address=:8888"
+      - "--entrypoints.web-whoami-ssl.address=:8443"
+      - "--entrypoints.web-whoami.address=:8000"
+      - "--entrypoints.web-nginx-test.address=:8080"
+      - "--providers.providersThrottleDuration=2s"
+    ports:
+      - "8080:8080"
+      - "8888:8888"
+      - "8443:8443"
+      - "8000:8000"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - traefik_net
+# ...
+  whoami:
+    # A container that exposes an API to show its IP address
+    image: traefik/whoami
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.whoami.loadbalancer.server.port=80"
+      - "traefik.http.routers.whoami.rule=Host(`localhost`)"
+      - "traefik.http.routers.whoami.entrypoints=web-whoami,web-whoami-ssl"
+      - "traefik.http.middlewares.limit.buffering.maxRequestBodyBytes=2000000"
+      - "traefik.http.middlewares.testHeader.headers.customrequestheaders.Connection=upgrade"
+
+    networks:
+      - traefik_net
+
+  web-test1:
+    image: fl64/nginx_test:0.0.7
+    environment:
+      - T1_BC=red
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web-test.rule=Host(`localhost`)"
+      - "traefik.http.services.web-test.loadbalancer.server.port=8080"
+      - "traefik.http.routers.web-test.entrypoints=web-nginx-test"
+    networks:
+      - traefik_net
+
+  web-test2:
+    image: fl64/nginx_test:0.0.7
+    environment:
+      - T1_BC=blue
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web-test.rule=Host(`localhost`)"
+      - "traefik.http.services.web-test.loadbalancer.server.port=8080"
+      - "traefik.http.routers.web-test.entrypoints=web-nginx-test"
+    networks:
+      - traefik_net
+
+  web-test3:
+    image: fl64/nginx_test:0.0.7
+    environment:
+      - T1_BC=green
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web-test.rule=Host(`localhost`)"
+      - "traefik.http.services.web-test.loadbalancer.server.port=8080"
+      - "traefik.http.routers.web-test.entrypoints=web-nginx-test"
+    networks:
+      - traefik_net
+
+networks:
+  traefik_net:
